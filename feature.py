@@ -56,17 +56,17 @@ def match_descriptors(des1, des2, matcher_type):
     if matcher_type == "BF":
         matcher = cv2.BFMatcher()
     elif matcher_type == "FLANN":
-        FLANN_INDEX_KDTREE = 1
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)
-        matcher = cv2.FlannBasedMatcher(index_params, search_params)
+        matcher = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_FLANNBASED)
+        # type conversion for FLANN matching calcu
+        des1 = np.float32(des1) 
+        des2 = np.float32(des2)
     
     matches = matcher.knnMatch(des1, des2, k=2)
     return matches
 
 
 if __name__ == "__main__":
-    image1 = cv2.imread('./content/images/image140.jpg')
+    image1 = cv2.imread('/workspace/src/content/images/image140.jpg')
     gray1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
     keypoints1 = detect_feature(gray1, "BRISK")
     # outImage = np.copy(image)
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     #     0, 255, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     kp1, des1 = desc_feature(keypoints1, image1, "BRIEF")
 
-    image2 = cv2.imread('./content/images/image141.jpg')
+    image2 = cv2.imread('/workspace/src/content/images/image141.jpg')
     gray2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
     keypoints2 = detect_feature(gray2, "BRISK")
     # outImage = np.copy(image)
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # cv2.drawKeypoints(image, kp, outImage2, color=(0, 255, 0),
     #                   flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     # cv2.imwrite("./out2.png", outImage)
-    matches = match_descriptors(des1, des2, "BF")
+    matches = match_descriptors(des1, des2, "FLANN")
 
     # Need to draw only good matches, so create a mask
     matchesMask = [[0,0] for i in range(len(matches))]
