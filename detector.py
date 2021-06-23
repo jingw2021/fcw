@@ -7,10 +7,8 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.utils.visualizer import Visualizer
-
 from detectron2.utils.logger import setup_logger
 
-from feature import detect_feature
 setup_logger()
 
 
@@ -43,7 +41,10 @@ class MRCNN_detector:
         kept_idx = nms(torch.tensor(boxes), torch.tensor(scores), 0.5)
         boxes, scores = boxes[kept_idx, :], scores[kept_idx]
         
-        res = np.zeros((boxes.shape[0], boxes.shape[1]+1))
+        if len(boxes.shape) < 2:
+            res = np.zeros((1, 5))
+        else:
+            res = np.zeros((boxes.shape[0], 5))
         res[:,:-1] = boxes
         res[:,-1] = scores
         return res
