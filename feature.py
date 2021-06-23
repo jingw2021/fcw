@@ -61,7 +61,7 @@ def match_descriptors(des1, des2, matcher_type):
         des1 = np.float32(des1) 
         des2 = np.float32(des2)
     
-    matches = matcher.knnMatch(des1, des2, k=2)
+    matches = matcher.knnMatch(des1, des2, k=1)
     return matches
 
 
