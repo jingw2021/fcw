@@ -57,7 +57,7 @@ def main(video_path, detector, tracker, save=True):
             continue
         
         # feature extraction and description
-        gray = cv2.cvtColor(data_point[frame], cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(data_point["frame"], cv2.COLOR_BGR2GRAY)
         keypoints = detect_feature(gray, "BRISK")
         kp, des = desc_feature(keypoints, gray, "BRIEF")
         # result on current frame
@@ -109,10 +109,10 @@ def parse_args():
     """"Parse input arguments"""
     parser = argparse.ArgumentParser(description="FCW argument")
     parser.add_argument("--video_path", type=str,
-                        default='/workspace/src/content/short_video_crash_rear_end_10sec.mp4')
+                        default='/workspace/src/content/video/short_video_crash_rear_end_10sec.mp4')
     parser.add_argument("--model_name", type=str,
                         default="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-    parser.add_argument("--device", type=str, default='cuda')
+    parser.add_argument("--device", type=str, default='cpu')
     parser.add_argument("--max_age", type=int, default=1,
                         help="Maximum number of frames to keep alive a track without associated detection")
     parser.add_argument("--min_hits", type=int, default=3,

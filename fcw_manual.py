@@ -23,7 +23,7 @@ def main(pickle_path, track_id):
         data_records = pickle.load(f)
 
     # video path
-    video_path = pickle_path.split('_')[0]+".mp4"
+    video_path = pickle_path.split('_records')[0]+".mp4"
     cap = cv2.VideoCapture(video_path)
     # get frame meta data of the current video
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -31,7 +31,8 @@ def main(pickle_path, track_id):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # `height`
     # output video path
     out_path = video_path.split('.')[0]+"_output.mp4"
-    visualizer = Visualizer(out_path, (width, height), 10)
+    print(out_path)
+    visualizer = Visualizer(out_path, (width, height), fps)
 
     dataDQ = deque(maxlen=2)
     ttc_records = defaultdict(list)
@@ -103,7 +104,7 @@ def parse_args():
     """"Parse input arguments"""
     parser = argparse.ArgumentParser(description="FCW argument")
     parser.add_argument("--pickle_path", type=str,
-                        default='/workspace/src/content/video/processed-video-forward-1619026104721_records.pickle')
+                        default='/workspace/src/content/video/short_video_crash_rear_end_10sec_records.pickle')
     parser.add_argument("--track_id", type=list, default=[1])
     args = parser.parse_args()
     return args

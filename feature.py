@@ -18,7 +18,7 @@ def detect_feature(img, detector_type):
     elif detector_type == "ORB":
         detector = cv2.ORB_create()
     elif detector_type == "SIFT":
-        detector = cv2.xfeatures2d.SIFT_create()
+        detector = cv2.SIFT_create()
     else:
         raise(f"Unsupported detector type {detector_type}")
 
