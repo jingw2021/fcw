@@ -38,7 +38,7 @@ class Pipeline:
         self.track_ids = track_ids
         self.lane_pred_save_path = os.path.join(
             video_path.split('.')[0], 'lane_prediction')
-        self.running_frame_idx = 180
+        self.running_frame_idx = 0
         self.detector = MRCNN_detector(
             models.get('detector'), models.get('device'))
         self.tracker = Tracker(models.get('tracker_max_age'), models.get(
@@ -77,7 +77,7 @@ class Pipeline:
         data_dq = deque(maxlen=2)  # cache pre and cur detector
         ttc_records = defaultdict(list)  # hold ttc for all tracks
         data_point = {}
-
+        warning = False
         while cap_in.isOpened():
             ret, frame = cap_in.read()
 
@@ -99,6 +99,8 @@ class Pipeline:
 
             data_point.update(self.data_records[self.running_frame_idx])
 
+            if self.running_frame_idx == 208:
+                print("break point ")
 
             if self.use_lane:
                 lane_prediction = self.lane_detector.detect_lanes(
@@ -108,7 +110,7 @@ class Pipeline:
                         self.lane_pred_save_path, "{:05d}.pkl".format(self.running_frame_idx)))
                 lanes_full = self.lane_classifier.update(lane_prediction)
 
-            warning = False
+            
             if self.running_frame_idx % self.pipeline_every == 0:
                 # update the tracks
                 if self.running_frame_idx % self.detector_every == 0:
@@ -157,11 +159,11 @@ class Pipeline:
                                     warning = False
                     data_point.update(
                         {
-                            'ttc_replay': np.array(ttc_relay)
+                            'ttc_relay': np.array(ttc_relay)
                         })
                     visualizer.add(data_point['frame'], data_point.get('tracks', np.array([])), data_point.get('ttc_relay', np.array([])), frame_no=self.running_frame_idx, warning=warning)
             else:
-                visualizer.add(frame, data_point.get('tracks', np.array([])), data_point.get('ttc_relay', np.array([])), frame_no=self.running_frame_idx, warning=warning)
+                visualizer.add(data_point['frame'], data_point.get('tracks', np.array([])), data_point.get('ttc_relay', np.array([])), frame_no=self.running_frame_idx, warning=warning)
 
             self.running_frame_idx += 1
 
@@ -179,15 +181,15 @@ def parse_args():
     parser.add_argument("--det_model_name", type=str,
                         default="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
     parser.add_argument("--device", type=str, default='cpu')
-    parser.add_argument("--pipeline_every", type=int, default=3,
+    parser.add_argument("--pipeline_every", type=int, default=6,
                         help="frequency for pipeline running")
-    parser.add_argument("--detector_every", type=int, default=3,
+    parser.add_argument("--detector_every", type=int, default=6,
                         help="frequency for detector running")
     parser.add_argument("--max_age", type=int, default=2,
                         help="Maximum number of frames to keep alive a track without associated detection")
     parser.add_argument("--min_hits", type=int, default=3,
                         help="Minimum number of assoociated detection before track is initialized")
-    parser.add_argument("--iou_th", type=float, default=0.5,
+    parser.add_argument("--iou_th", type=float, default=0.25,
                         help="Minimum IoU for match")
     parser.add_argument("--save_model_output", type=bool, default=False, help="whether to save detection result only")
     parser.add_argument("--use_lane", type=bool, default=False, help="whether to use detection result only")
