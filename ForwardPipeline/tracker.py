@@ -1,5 +1,7 @@
 import cv2
 
+
+
 from forward_pipeline_utils import Rect, detectron_prediction_to_rect_list
 
 class Trackers():
@@ -59,10 +61,10 @@ class Trackers():
         if predictions is None:
             return self.objects
         else:
-            predictions = detectron_prediction_to_rect_list(predictions)
+            # predictions = detectron_prediction_to_rect_list(predictions)
             next_objects = []
             for prediction in predictions:
-                bb = prediction['bounding_box']
+                bb = Rect(prediction[0], prediction[1], prediction[2], prediction[3])
                 object_id = None
                 for idx, object in enumerate(self.objects):
                     iou = self.iou_l_t_r_b(

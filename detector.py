@@ -47,6 +47,7 @@ class MRCNN_detector:
             res = np.zeros((boxes.shape[0], 5))
         res[:,:-1] = boxes
         res[:,-1] = scores
+
         return res
 
 

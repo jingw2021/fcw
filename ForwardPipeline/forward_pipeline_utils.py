@@ -52,7 +52,7 @@ def detectron_prediction_to_rect_list(prediction, car_only=True):
         pred_class = pred_class.numpy()
         score = score.cpu().numpy()
         class_name = class_names[pred_class]
-        if car_only and class_name in ["car"]:
+        if car_only and class_name in ["car","motorbike","bus","train","truck"]:
             filtered_predictions.append(
                 {
                     'pred_class': class_name,

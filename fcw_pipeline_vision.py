@@ -1,20 +1,21 @@
 import os
+import sys
 import argparse
 from collections import deque, defaultdict
 import pickle
+sys.path.append('/workspace/src/ForwardPipeline')
 
 import cv2
 from cv2 import data
 import numpy as np
 
 from detector import MRCNN_detector
-from tracker import Tracker
 # from detectron2.data import MetadataCatalog
 # from detectron2.utils.visualizer import Visualizer
 from feature import detect_feature, desc_feature
 from ttc import ttc_cal
 from visualizer import Visualizer
-from ForwardPipeline import detect_lanes, lane_classifier
+from ForwardPipeline import detect_lanes, lane_classifier, tracker
 
 
 class Pipeline:
@@ -33,7 +34,7 @@ class Pipeline:
         self.pipeline_every = pipeline_every
         self.detector_every = detector_every
         self.save_model_output = save_model_output
-        self.output_path = video_path.split('.')[0]+"_output.mp4"
+        self.output_path = video_path.split('.')[0]+"_output_vision_trker.mp4"
         self.use_lane = use_lane
         self.track_ids = track_ids
         self.lane_pred_save_path = os.path.join(
@@ -41,8 +42,12 @@ class Pipeline:
         self.running_frame_idx = 0
         self.detector = MRCNN_detector(
             models.get('detector'), models.get('device'))
-        self.tracker = Tracker(models.get('tracker_max_age'), models.get(
-            "tracker_min_hits"), models.get("tracker_iou"))
+        # self.tracker = Tracker(models.get('tracker_max_age'), models.get(
+        #     "tracker_min_hits"), models.get("tracker_iou"))
+
+        # vision tracker
+        self.trackers = tracker.Trackers(tracker_size=(540, 320))
+        self.vision_tracking = True
 
         # for detector result
         self.inter_data_output = video_path.split('.')[0]+"_records.pickle"
@@ -99,6 +104,13 @@ class Pipeline:
 
             data_point.update(self.data_records[self.running_frame_idx])
 
+            if self.vision_tracking:                
+                data_point['outputs'][:,0] /= width
+                data_point['outputs'][:,1] /= height
+                data_point['outputs'][:,2] /= width
+                data_point['outputs'][:,3] /= height
+
+                
 
             if self.use_lane:
                 lane_prediction = self.lane_detector.detect_lanes(
@@ -112,9 +124,18 @@ class Pipeline:
             if self.running_frame_idx % self.pipeline_every == 0:
                 # update the tracks
                 if self.running_frame_idx % self.detector_every == 0:
-                    trks = self.tracker.update(data_point['outputs'])
+                    object_trackers = self.trackers.update(data_point['frame'], data_point['outputs'])
                 else:
-                    trks = self.tracker.update()
+                    object_trackers = self.trackers.update(data_point['frame'], None)
+                
+                # format the interfaces
+                trks = []
+                for t in object_trackers:
+                    bb = t['latest_bb'].get_l_t_r_b((width, height))
+                    id = t['id']
+                    trks.append(list(bb)+[id])
+                trks = np.array(trks)
+
 
                 # extract feature and matching
                 gray = cv2.cvtColor(data_point["frame"], cv2.COLOR_BGR2GRAY)
@@ -179,9 +200,9 @@ def parse_args():
     parser.add_argument("--det_model_name", type=str,
                         default="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
     parser.add_argument("--device", type=str, default='cpu')
-    parser.add_argument("--pipeline_every", type=int, default=6,
+    parser.add_argument("--pipeline_every", type=int, default=3,
                         help="frequency for pipeline running")
-    parser.add_argument("--detector_every", type=int, default=6,
+    parser.add_argument("--detector_every", type=int, default=15,
                         help="frequency for detector running")
     parser.add_argument("--max_age", type=int, default=2,
                         help="Maximum number of frames to keep alive a track without associated detection")
@@ -192,7 +213,7 @@ def parse_args():
     parser.add_argument("--save_model_output", type=bool, default=False, help="whether to save detection result only")
     parser.add_argument("--use_lane", type=bool, default=False, help="whether to use detection result only")
 
-    parser.add_argument("--track_ids", type=list, default=[1])
+    parser.add_argument("--track_ids", type=list, default=[])
     parser.add_argument("--force_regenerate_lane_detection", type=bool, default=False, help="whether to rerun lane detection model")
 
     args = parser.parse_args()
