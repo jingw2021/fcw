@@ -1,16 +1,17 @@
 import cv2
 
-
-
 from forward_pipeline_utils import Rect, detectron_prediction_to_rect_list
+from tracker import associate_detections_to_trackers
+
 
 class Trackers():
-    def __init__(self, tracker_size, iou_threshold=0.5):
+    def __init__(self, tracker_size, iou_threshold=0.3):
         self.tracker_size = tracker_size
         self.tracker_width, self.tracker_height = tracker_size
         self.iou_threshold = iou_threshold
         self.last_object_id = 0
         self.objects = []
+
     def rect_to_p1_p2(self, bounding_box):
         p1 = \
             bounding_box[0]/self.tracker_width, \
@@ -32,7 +33,7 @@ class Trackers():
         inter = (inter_bottom - inter_top)*(inter_right - inter_left)
         union = w1*h1 + w2*h2 - inter
         return inter/union
-    
+
     def iou_l_t_r_b(self, rect1, rect2):
         l1, t1, r1, b1 = rect1
         l2, t2, r2, b2 = rect2
@@ -42,7 +43,8 @@ class Trackers():
         inter_right = min(r1, r2)
         inter_bottom = min(b1, b2)
 
-        inter = max(0, inter_bottom - inter_top)*max(0, inter_right - inter_left)
+        inter = max(0, inter_bottom - inter_top) * \
+            max(0, inter_right - inter_left)
         union = (b1 - t1)*(r1 - l1) + (b2 - t2)*(r2 - l2) - inter
         return inter/union
 
@@ -63,28 +65,38 @@ class Trackers():
         else:
             # predictions = detectron_prediction_to_rect_list(predictions)
             next_objects = []
-            for prediction in predictions:
-                bb = Rect(prediction[0], prediction[1], prediction[2], prediction[3])
-                object_id = None
-                for idx, object in enumerate(self.objects):
-                    iou = self.iou_l_t_r_b(
-                            object['latest_bb'].get_l_t_r_b(),
-                            bb.get_l_t_r_b()
-                        )
-                    if iou > self.iou_threshold:
-                        object = self.objects.pop(idx)
-                        object_id = object['id']
-                        break
+            pred_bbs = [list(ele[:4]) for ele in predictions]
+            trks = [list(ele['latest_bb'].get_l_t_r_b())
+                    for ele in self.objects]
+            matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(
+                pred_bbs, trks, self.iou_threshold)
 
+            for m in matched:
                 tracker = cv2.TrackerCSRT_create()
+                bb = Rect(*pred_bbs[m[0]])
+                tracker.init(image_tracker, bb.get_x_y_w_h(
+                    (self.tracker_width, self.tracker_height), as_int=True))
+                self.objects[m[1]].update({
+                    "tracker": tracker,
+                    "latest_bb": bb
+                    }
+                )
+            # pop out the trks not updated
+            for t in unmatched_trks[::-1]:
+                self.objects.pop(t)
 
-                tracker.init(image_tracker, bb.get_x_y_w_h((self.tracker_width, self.tracker_height), as_int=True))
-                if object_id is None:
-                    object_id = self.last_object_id
-                    self.last_object_id +=1
+            for d in unmatched_dets:
+                object_id = self.last_object_id
+                self.last_object_id += 1
+                bb = Rect(*pred_bbs[d])
+                tracker = cv2.TrackerCSRT_create()
+                tracker.init(image_tracker, bb.get_x_y_w_h(
+                    (self.tracker_width, self.tracker_height), as_int=True))
+                self.objects.append({
+                    'id': object_id, 
+                    'tracker': tracker, 
+                    'latest_bb': bb
+                    }
+                )
 
-                next_objects.append({'id': object_id, 'tracker': tracker, 'latest_bb': bb})
-            
-
-            self.objects = next_objects
             return self.objects

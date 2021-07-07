@@ -15,7 +15,7 @@ from detector import MRCNN_detector
 from feature import detect_feature, desc_feature
 from ttc import ttc_cal
 from visualizer import Visualizer
-from ForwardPipeline import detect_lanes, lane_classifier, tracker
+from ForwardPipeline import detect_lanes, lane_classifier, vision_tracker
 
 
 class Pipeline:
@@ -46,7 +46,7 @@ class Pipeline:
         #     "tracker_min_hits"), models.get("tracker_iou"))
 
         # vision tracker
-        self.trackers = tracker.Trackers(tracker_size=(540, 320))
+        self.trackers = vision_tracker.Trackers(tracker_size=(540, 320))
         self.vision_tracking = True
 
         # for detector result
@@ -163,9 +163,9 @@ class Pipeline:
                     # filter non-stable ttc due to relative speed or inaccurate detection
                     ttc_relay = []
                     for k, v in ttc_records.items():
-                        if len(v) > 5:
+                        if len(v) > 2:
                             v_temp = [ele for ele in v[-5:] if ele != np.inf]
-                            if len(v_temp) > 0 and max(v_temp) - min(v_temp) < 5 and min(v_temp) >= 0:
+                            if len(v_temp) > 0 and max(v_temp) - min(v_temp) < 5 and v_temp[-1]>0:
                                 if len(self.track_ids) > 0:
                                     if k in self.track_ids:
                                         ttc_relay.append([k, v_temp[-1]])
