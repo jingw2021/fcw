@@ -15,6 +15,8 @@ def ttc_cal(dataDQ, fps):
 
     # match before previous frame and current frame
     prev_frame, cur_frame = dataDQ[0], dataDQ[1]
+    if prev_frame['tracks'].shape[0] < 1 or cur_frame['tracks'].shape[0] < 1:
+        return {}
     # calcualte delta t 
     d_t = 1.0/fps*(cur_frame['idx']-prev_frame['idx'])
     matches = match_descriptors(

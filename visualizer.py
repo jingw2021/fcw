@@ -2,6 +2,9 @@ import os
 
 import cv2
 import numpy as np
+import pandas as pd
+import seaborn as sn
+import matplotlib.pyplot as plt
 
 
 class Visualizer():
@@ -41,3 +44,52 @@ class Visualizer():
         cv2.putText(frame, f"Frame {frame_no}", (800, 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         self.cap_out.write(frame)
+
+
+class Scatter_Ploter():
+    def __init__(self, fig_path):
+        self.fig_path = fig_path
+        self.pairs = []
+    
+    def _process_batch(self, records):
+        """ obtain the predicted ttc and ground truth ttc 
+        params: 
+            records: list(dict), each dict with key
+                "idx", int, video index
+                "ttc_records", 2D array, the first column is the frame number, the second column is the predicted ttc 
+                "actual", int, the NO. of actual collision frame
+                "fps", float, the fps of the video
+        returns:
+            2d array, [ground truth ttc, predicted ttc, video index]
+        """
+        for rec in records: 
+            idx = rec.get('idx')
+            ttc_records = rec.get('ttc_records')
+            fps = rec.get('fps', 30)
+            actual = rec.get('actual')
+
+            for ttc_rec in ttc_records:
+                frame_no = ttc_rec[0]
+                ttc = ttc_rec[1]
+                gt_ttc = (actual - frame_no)/fps
+                if gt_ttc > 0:
+                    self.pairs.append([gt_ttc, ttc, idx])
+
+
+    def plot(self, records):
+        # get the pairs
+        self._process_batch(records)
+        # check whether to plot
+        if len(self.pairs) < 1:
+            print("There is no ttc prediction from the videos")
+            return
+        
+        df = pd.DataFrame(self.pairs, columns=['actual', 'pred', 'video'])
+        fig = plt.figure(figsize=(12, 9), tight_layout=True)
+        sn.scatterplot(x=df['actual'], y=df['pred'])
+        fig.axes[0].set_xlabel("Actual TTC (seconds)")
+        fig.axes[0].set_ylabel("Predicted TTC (seconds)")
+        fig.savefig(self.fig_path, dpi=250)
+
+
+

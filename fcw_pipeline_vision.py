@@ -6,15 +6,15 @@ import pickle
 sys.path.append('/workspace/src/ForwardPipeline')
 
 import cv2
-from cv2 import data
 import numpy as np
+import pandas as pd
 
 from detector import MRCNN_detector
 # from detectron2.data import MetadataCatalog
 # from detectron2.utils.visualizer import Visualizer
 from feature import detect_feature, desc_feature
 from ttc import ttc_cal
-from visualizer import Visualizer
+from visualizer import Visualizer, Scatter_Ploter
 from ForwardPipeline import detect_lanes, lane_classifier, vision_tracker
 
 
@@ -83,6 +83,7 @@ class Pipeline:
         ttc_records = defaultdict(list)  # hold ttc for all tracks
         data_point = {}
         warning = False
+        res = []
         while cap_in.isOpened():
             ret, frame = cap_in.read()
 
@@ -120,10 +121,10 @@ class Pipeline:
                         self.lane_pred_save_path, "{:05d}.pkl".format(self.running_frame_idx)))
                 lanes_full = self.lane_classifier.update(lane_prediction)
 
-            
+
             if self.running_frame_idx % self.pipeline_every == 0:
                 # update the tracks
-                if self.running_frame_idx % self.detector_every == 0:
+                if self.running_frame_idx % self.detector_every == 0 and len(data_point['outputs']) > 0:
                     object_trackers = self.trackers.update(data_point['frame'], data_point['outputs'])
                 else:
                     object_trackers = self.trackers.update(data_point['frame'], None)
@@ -165,12 +166,14 @@ class Pipeline:
                     for k, v in ttc_records.items():
                         if len(v) > 2:
                             v_temp = [ele for ele in v[-5:] if ele != np.inf]
-                            if len(v_temp) > 0 and max(v_temp) - min(v_temp) < 5 and v_temp[-1]>0:
+                            if len(v_temp) > 1 and max(v_temp) - min(v_temp) < 5 and v_temp[-1]>0:
                                 if len(self.track_ids) > 0:
                                     if k in self.track_ids:
                                         ttc_relay.append([k, v_temp[-1]])
                                         if v_temp[-1] < 2.7:
                                             warning = True
+                                        # add the predicted ttc to res
+                                        res.append([self.running_frame_idx, v_temp[-1]])
                                 else:
                                     ttc_relay.append([k, v_temp[-1]])
                             if k in self.track_ids:
@@ -186,10 +189,16 @@ class Pipeline:
 
             self.running_frame_idx += 1
 
+            # for debugging
+            if self.running_frame_idx == 130:
+                break
+
         if self.save_model_output:
             with open(self.inter_data_output, 'wb') as f:
                 pickle.dump(self.data_records, f, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Detection reuslt saved to {self.inter_data_output}")
+        
+        return res, fps
 
 
 def parse_args():
@@ -229,13 +238,32 @@ if __name__ == "__main__":
         "tracker_min_hits": args.min_hits,
         "tracker_iou": args.iou_th,
     }
+    sp = Scatter_Ploter('./scatter.png')
 
-    pipeline = Pipeline(args.video_path,
-                        models, 
-                        args.pipeline_every, 
-                        args.detector_every, 
-                        args.save_model_output,
-                        args.use_lane, 
-                        args.track_ids, 
-                        args.force_regenerate_lane_detection)
-    pipeline.run()
+    # read video list
+    df = pd.read_csv("/workspace/src/content/video/input/videos.csv")
+
+    records = []
+
+    for idx, row in df.iterrows():
+        tracks = [int(ele) for ele in row['tracks'].split('|')]
+
+        pipeline = Pipeline(row['videos'],
+                            models, 
+                            args.pipeline_every, 
+                            args.detector_every, 
+                            False,
+                            args.use_lane, 
+                            tracks, 
+                            args.force_regenerate_lane_detection)
+        res, fps = pipeline.run()
+        records.append({
+            "idx": idx,
+            "ttc_records": res, 
+            "fps" : fps, 
+            "actual" : row['actual']
+        })
+        if idx == 1:
+            break
+    
+    sp.plot(records)

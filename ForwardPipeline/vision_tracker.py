@@ -82,6 +82,7 @@ class Trackers():
                     }
                 )
             # pop out the trks not updated
+            unmatched_trks.sort() 
             for t in unmatched_trks[::-1]:
                 self.objects.pop(t)
 

@@ -4,7 +4,6 @@ from collections import deque, defaultdict
 import pickle
 
 import cv2
-from cv2 import data
 import numpy as np
 
 from detector import MRCNN_detector
