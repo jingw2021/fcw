@@ -3,6 +3,8 @@ import sys
 import argparse
 from collections import deque, defaultdict
 import pickle
+
+from numpy.core.records import record
 sys.path.append('/workspace/src/ForwardPipeline')
 
 import cv2
@@ -189,9 +191,6 @@ class Pipeline:
 
             self.running_frame_idx += 1
 
-            # for debugging
-            if self.running_frame_idx == 130:
-                break
 
         if self.save_model_output:
             with open(self.inter_data_output, 'wb') as f:
@@ -241,29 +240,33 @@ if __name__ == "__main__":
     sp = Scatter_Ploter('./scatter.png')
 
     # read video list
-    df = pd.read_csv("/workspace/src/content/video/input/videos.csv")
+    df = pd.read_csv("/workspace/src/content/video/result/ttc_scatter/july8_1/videos.csv")
 
     records = []
 
-    for idx, row in df.iterrows():
-        tracks = [int(ele) for ele in row['tracks'].split('|')]
+    # for idx, row in df.iterrows():
+    #     tracks = [int(ele) for ele in row['tracks'].split('|')]
 
-        pipeline = Pipeline(row['videos'],
-                            models, 
-                            args.pipeline_every, 
-                            args.detector_every, 
-                            False,
-                            args.use_lane, 
-                            tracks, 
-                            args.force_regenerate_lane_detection)
-        res, fps = pipeline.run()
-        records.append({
-            "idx": idx,
-            "ttc_records": res, 
-            "fps" : fps, 
-            "actual" : row['actual']
-        })
-        if idx == 1:
-            break
+    #     pipeline = Pipeline(row['videos'],
+    #                         models, 
+    #                         args.pipeline_every, 
+    #                         args.detector_every, 
+    #                         False,
+    #                         args.use_lane, 
+    #                         tracks, 
+    #                         args.force_regenerate_lane_detection)
+    #     res, fps = pipeline.run()
+    #     records.append({
+    #         "idx": idx,
+    #         "ttc_records": res, 
+    #         "fps" : fps, 
+    #         "actual" : row['actual']
+    #     })
+    
+    # with open("/workspace/src/content/video/result/ttc_scatter/july8_1/recods.pickle", 'wb') as f:
+    #     pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open("/workspace/src/content/video/result/ttc_scatter/july8_1/recods.pickle", 'rb') as f:
+                records = pickle.load(f)
     
     sp.plot(records)

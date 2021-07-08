@@ -85,8 +85,9 @@ class Scatter_Ploter():
             return
         
         df = pd.DataFrame(self.pairs, columns=['actual', 'pred', 'video'])
-        fig = plt.figure(figsize=(12, 9), tight_layout=True)
-        sn.scatterplot(x=df['actual'], y=df['pred'])
+        fig = plt.figure(figsize=(12, 12), tight_layout=True)
+        sn.scatterplot(x=df['actual'], y=df['pred'], hue=df['video'], palette="deep", style=df['video'])
+        sn.lineplot(x=range(0,6), y=range(0,6))
         fig.axes[0].set_xlabel("Actual TTC (seconds)")
         fig.axes[0].set_ylabel("Predicted TTC (seconds)")
         fig.savefig(self.fig_path, dpi=250)
