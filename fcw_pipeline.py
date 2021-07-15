@@ -239,4 +239,4 @@ if __name__ == "__main__":
     with open("/workspace/src/content/video/result/ttc_scatter/july8_2/recods.pickle", 'wb') as f:
         pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)
     
-    sp.plot(records)
+    # sp.plot(records)

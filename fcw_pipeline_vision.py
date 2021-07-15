@@ -267,6 +267,6 @@ if __name__ == "__main__":
     #     pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     with open("/workspace/src/content/video/result/ttc_scatter/july8_1/recods.pickle", 'rb') as f:
-                records = pickle.load(f)
+        records = pickle.load(f)
     
     sp.plot(records)
