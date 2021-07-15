@@ -4,15 +4,16 @@ range_detector.py
 from enum import Enum
 
 from numpy.core.fromnumeric import shape
-
-class RStates(Enum):
-    DETECTING = 1
-    WARNING = 2
-
+from numpy.core.records import record
 import numpy as np
 import pandas as pd
 import pickle
 
+# constant
+class RStates(Enum):
+    DETECTING = 1
+    INTER = 2
+    WARNING = 3
 
 
 class RangeDetector: 
@@ -24,8 +25,8 @@ class RangeDetector:
         self.row_logs = []
         self.initialize()
         # Constants 
-        self.TTC_THRESHOLD = kwargs.get("TTC_THRESHOLD", 2.7)
-        self.MIN_WARNING_INTERVAL = kwargs.get("MIN_WARNING_INTERVAL", 0.3)
+        self.TTC_THRESHOLD = kwargs.get("TTC_THRESHOLD", 3)
+        self.MIN_TRIGGER_INTERVAL = kwargs.get("MIN_TRIGGER_INTERVAL", 0.1)
         self.MAX_WARNING_INTERVAL = kwargs.get("MAX_WARNING_INTERVAL", 4)
         self.RECOVERY_DURATION = kwargs.get("RECOVERY_DURATION", 0.2)
         self.FPS = kwargs.get("fps", 30)
@@ -61,6 +62,26 @@ class RangeDetector:
         self.warning_start_frame = None
         self.last_warning_frame = None
     
+    def is_recovered(self, frame_idx):
+        """ check whether recovered from the collision risk
+        Params: 
+            frame_idx: int, current frame idx
+        Returns:
+            bool, whether recovered
+
+        """
+        time_delta_last = RangeDetector.get_time_delta(
+                    self.last_warning_frame, 
+                    frame_idx, 
+                    self.FPS
+                )
+        if time_delta_last > self.RECOVERY_DURATION:
+            return True
+        else:
+            return False
+        
+    
+    
     def detect_warning_rt(self, ttc_record):
         """ Detect the ttc warning intervals in real time
         Params: 
@@ -68,10 +89,26 @@ class RangeDetector:
         """
         frame_idx, ttc = ttc_record[0], ttc_record[1]
         if self.state == RStates.DETECTING:
-                if ttc != -1 and ttc < self.TTC_THRESHOLD:
+                if ttc > 0 and ttc < self.TTC_THRESHOLD:
+                    self.state = RStates.INTER
+                    self.warning_start_frame = frame_idx
+                    self.last_warning_frame = frame_idx
+        elif self.state == RStates.INTER:
+            time_delta_start = RangeDetector.get_time_delta(
+                    self.warning_start_frame,
+                    frame_idx, 
+                    self.FPS)
+            if ttc > 0 and ttc < self.TTC_THRESHOLD:
+                if time_delta_start > self.MIN_TRIGGER_INTERVAL:
                     self.state = RStates.WARNING
                     self.warning_start_frame = frame_idx
                     self.last_warning_frame = frame_idx
+            else: 
+                recovered = self.is_recovered(frame_idx)
+                if recovered:
+                    self.reset_detector()
+
+
         elif self.state == RStates.WARNING:
             time_delta_start = RangeDetector.get_time_delta(
                     self.warning_start_frame,
@@ -91,19 +128,14 @@ class RangeDetector:
 
                     self.reset_detector()
             else:
-                time_delta_last = RangeDetector.get_time_delta(
-                    self.last_warning_frame, 
-                    frame_idx, 
-                    self.FPS
-                )
-                if time_delta_last > self.RECOVERY_DURATION:
-                    if time_delta_start > self.MIN_WARNING_INTERVAL:
-                        self.detected_intervals.append(
-                            [
-                                self.warning_start_frame, 
-                                frame_idx
-                            ]
-                        )
+                recovered = self.is_recovered(frame_idx)
+                if recovered:
+                    self.detected_intervals.append(
+                        [
+                            self.warning_start_frame, 
+                            frame_idx
+                        ]
+                    )
                     self.reset_detector()
 
     def detect_warning_interval(self, ttc_records):
