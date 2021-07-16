@@ -4,16 +4,16 @@ from collections import deque, defaultdict
 import pickle
 
 import cv2
-from cv2 import data
 import numpy as np
+import pandas as pd
 
 from detector import MRCNN_detector
-from tracker import Tracker
+from tracker import Tracker, KalmanBoxTracker
 # from detectron2.data import MetadataCatalog
 # from detectron2.utils.visualizer import Visualizer
 from feature import detect_feature, desc_feature
 from ttc import ttc_cal
-from visualizer import Visualizer
+from visualizer import Visualizer, Scatter_Ploter
 from ForwardPipeline import detect_lanes, lane_classifier
 
 
@@ -78,6 +78,7 @@ class Pipeline:
         ttc_records = defaultdict(list)  # hold ttc for all tracks
         data_point = {}
         warning = False
+        res = []
         while cap_in.isOpened():
             ret, frame = cap_in.read()
 
@@ -111,7 +112,7 @@ class Pipeline:
             
             if self.running_frame_idx % self.pipeline_every == 0:
                 # update the tracks
-                if self.running_frame_idx % self.detector_every == 0:
+                if self.running_frame_idx % self.detector_every == 0 and len(data_point['outputs']) > 0:
                     trks = self.tracker.update(data_point['outputs'])
                 else:
                     trks = self.tracker.update()
@@ -150,6 +151,8 @@ class Pipeline:
                                         ttc_relay.append([k, v_temp[-1]])
                                         if v_temp[-1] < 2.7:
                                             warning = True
+                                        # add the predicted ttc to res
+                                        res.append([self.running_frame_idx, v_temp[-1]])
                                 else:
                                     ttc_relay.append([k, v_temp[-1]])
                             if k in self.track_ids:
@@ -169,6 +172,7 @@ class Pipeline:
             with open(self.inter_data_output, 'wb') as f:
                 pickle.dump(self.data_records, f, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Detection reuslt saved to {self.inter_data_output}")
+        return res, fps
 
 
 def parse_args():
@@ -179,9 +183,9 @@ def parse_args():
     parser.add_argument("--det_model_name", type=str,
                         default="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
     parser.add_argument("--device", type=str, default='cpu')
-    parser.add_argument("--pipeline_every", type=int, default=6,
+    parser.add_argument("--pipeline_every", type=int, default=1,
                         help="frequency for pipeline running")
-    parser.add_argument("--detector_every", type=int, default=6,
+    parser.add_argument("--detector_every", type=int, default=1,
                         help="frequency for detector running")
     parser.add_argument("--max_age", type=int, default=2,
                         help="Maximum number of frames to keep alive a track without associated detection")
@@ -208,13 +212,31 @@ if __name__ == "__main__":
         "tracker_min_hits": args.min_hits,
         "tracker_iou": args.iou_th,
     }
+    sp = Scatter_Ploter('./kf_scatter.png')
+    # read video list
+    df = pd.read_csv("/workspace/src/content/video/result/ttc_scatter/july8_2/videos.csv")
+    records = []
 
-    pipeline = Pipeline(args.video_path,
-                        models, 
-                        args.pipeline_every, 
-                        args.detector_every, 
-                        args.save_model_output,
-                        args.use_lane, 
-                        args.track_ids, 
-                        args.force_regenerate_lane_detection)
-    pipeline.run()
+    for idx, row in df.iterrows():
+        tracks = [int(ele) for ele in str(row['tracks']).split('|')]
+        KalmanBoxTracker.count = 0
+        pipeline = Pipeline(row['videos'],
+                            models, 
+                            args.pipeline_every, 
+                            args.detector_every, 
+                            False,
+                            args.use_lane, 
+                            tracks, 
+                            args.force_regenerate_lane_detection)
+        res, fps = pipeline.run()
+        records.append({
+            "idx": idx,
+            "ttc_records": res, 
+            "fps" : fps, 
+            "actual" : row['actual']
+        })
+    
+    with open("/workspace/src/content/video/result/ttc_scatter/july8_2/recods.pickle", 'wb') as f:
+        pickle.dump(records, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    # sp.plot(records)
