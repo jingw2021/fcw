@@ -157,9 +157,9 @@ class RangeDetector:
 
 
 if __name__ == "__main__":
-    df = pd.read_csv("/workspace/src/content/video/result/ttc_scatter/july8_2/videos.csv")
+    df = pd.read_csv("/workspace/src/content/video/result/ttc_scatter/july8_1/videos.csv")
 
-    with open("/workspace/src/content/video/result/ttc_scatter/july8_2/recods.pickle", 'rb') as f:
+    with open("/workspace/src/content/video/result/ttc_scatter/july8_1/recods.pickle", 'rb') as f:
         records = pickle.load(f)
     
     for idx, row in df.iterrows():
